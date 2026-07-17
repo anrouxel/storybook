@@ -3,15 +3,41 @@ import type { DocgenPayload, DocgenProviderInput } from 'storybook/internal/type
 
 import path from 'pathe';
 
-import { buildComponentDocgenFromResolved } from '../componentManifest/buildAngularComponentDocgen.ts';
+import {
+  buildComponentDocgenFromResolved,
+  type CompodocComponentSummary,
+} from '../componentManifest/buildAngularComponentDocgen.ts';
 import { getCompodocDocumentation } from '../componentManifest/compodocExtractor.ts';
+import type { CompodocJson } from '../componentManifest/compodocTypes.ts';
 import { resolveAngularStoryComponent } from '../componentManifest/resolveAngularComponents.ts';
+import { extractArgTypes } from '../extractArgTypes.ts';
 
 export interface BuildDocgenContext {
   /** Working directory the Compodoc `documentation.json` is resolved from. Defaults to `process.cwd()`. */
   cwd?: string;
   /** Resolve a CSF import path to an absolute file path. Defaults to joining `cwd` with the import path. */
   resolvePath?: (importPath: string) => string;
+}
+
+type AngularDocgenPayload = DocgenPayload & {
+  compodoc?: CompodocComponentSummary;
+};
+
+/**
+ * Adds renderer-converted argTypes to the manifest-shaped Angular docgen payload.
+ *
+ * The service keeps the raw `compodoc` summary for non-UI consumers, but UI consumers should read
+ * `argTypes` so they do not need to know about the Compodoc-specific docgen engine output.
+ */
+function addArgTypesFromCompodoc(
+  payload: AngularDocgenPayload,
+  compodocJson: CompodocJson | null
+): DocgenPayload {
+  const argTypes = payload.compodoc ? extractArgTypes(payload.compodoc, compodocJson) : undefined;
+  return {
+    ...payload,
+    ...(argTypes ? { argTypes } : {}),
+  };
 }
 
 /**
@@ -48,7 +74,7 @@ export async function buildDocgenPayload(
   const { csf, componentName, storyFile } = resolved;
   const compodocJson = getCompodocDocumentation({ cwd });
 
-  return buildComponentDocgenFromResolved({
+  const componentDocgen = buildComponentDocgenFromResolved({
     entry: input.entry,
     storyFilePath,
     storyFile,
@@ -56,4 +82,6 @@ export async function buildDocgenPayload(
     componentName,
     compodocJson,
   });
+
+  return addArgTypesFromCompodoc(componentDocgen, compodocJson);
 }

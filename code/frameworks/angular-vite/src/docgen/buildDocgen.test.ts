@@ -121,6 +121,27 @@ describe('buildDocgenPayload — compodoc summary', () => {
   });
 });
 
+describe('buildDocgenPayload — argTypes', () => {
+  it('derives argTypes from the compodoc summary', async () => {
+    const payload = await buildDocgenPayload({
+      entry: makeEntry('./src/button/button.stories.ts', 'Components/Button'),
+    });
+
+    expect(payload?.argTypes?.label).toMatchObject({
+      name: 'label',
+      description: 'Text displayed inside the button.',
+      type: { name: 'string', required: false },
+      table: { category: 'inputs', defaultValue: { summary: 'Click me' } },
+    });
+    expect(payload?.argTypes?.disabled?.table?.defaultValue).toEqual({ summary: 'false' });
+    expect(payload?.argTypes?.clicked).toMatchObject({
+      name: 'clicked',
+      action: 'clicked',
+      table: { category: 'outputs' },
+    });
+  });
+});
+
 describe('buildDocgenPayload — compodoc missing', () => {
   it('returns an error when the component is not found in compodoc', async () => {
     setupMemfsMocks({
